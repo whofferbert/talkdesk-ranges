@@ -25,5 +25,28 @@ my $google_cloud_record = "_cloud-netblocks.googleusercontent.com";
 
 This script reaches out to those pages and DNS servers as need be, parses the information, and returns a list of non-overlapping, non-duplicated CIDR ranges. Individual host IPs are returned as CIDR ranges as well (ie. 1.2.3.4/32).
 
-This approach allows for fairly easy routing requirements, if you don't mind having a huge routing table. An example can be found in example.sh.
+This approach allows for fairly easily meeting routing requirements, if you don't mind having a huge routing table. An example can be found in example.sh.
+
+# Requirements
+
+This is a pure Perl program, so it could be ran under Linux/Max/Windows/etc, with the proper Perl modules installed (from your system repos, CPAN, etc).
+
+It requires at least Perl v5.10 and a number of Perl modules to operate:
+
+```perl
+use File::Basename;                     # know where the script lives
+use Getopt::Long;                       # handle arguments
+use LWP::UserAgent;                     # www calls
+use JSON::PP;                           # pure-perl JSON encoder/decoder
+use NetAddr::IP;                        # range logic
+use NetAddr::IP::Util
+    qw(inet_ntoa ipv6_ntoa);            # binary to human readable
+use Net::DNS::Dig;                      # get dns info based on names
+```
+
+# Bugs
+
+The domain \*pusher.com (not \*.pusher.com) is listed as a wildcard domain in the Talkdesk domains, but currently not handled in the code.
+
+If you find other bugs in the code, feel free open a bug/issue or fix the problem and open a PR.
 
