@@ -44,6 +44,8 @@ use NetAddr::IP::Util
 use Net::DNS::Dig;                      # get dns info based on names
 ```
 
+Unless you have them already, you will likely need to install NetAddr::IP and Net::DNS::Dig.
+
 # Usage
 
 The help text is as follows:
