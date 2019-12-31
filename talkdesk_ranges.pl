@@ -11,10 +11,10 @@
 use 5.010;				# say
 use strict;				# good form
 use warnings;				# know when stuff is wrong
-
-use Data::Dumper;			# for debugging
-$Data::Dumper::Sortkeys = 1;		# sort the dumped hash keys
-
+#
+#use Data::Dumper;			# for debugging
+#$Data::Dumper::Sortkeys = 1;		# sort the dumped hash keys
+#
 use File::Basename;			# know where the script lives
 use Getopt::Long;			# handle arguments
 use LWP::UserAgent;			# www calls
@@ -38,6 +38,7 @@ my $talkdesk_range_url = "https://support.talkdesk.com/hc/en-us/articles/2101730
 my $talkdesk_names_url = "https://support.talkdesk.com/hc/en-us/articles/204370859-Setting-up-System-Requirements-and-Network-Settings";
 my $aws_ip_url = "https://ip-ranges.amazonaws.com/ip-ranges.json";
 my $cloudflare_ip_url = "https://www.cloudflare.com/ips-v4";
+my $google_cloud_record = "_cloud-netblocks.googleusercontent.com";
 
 # store www page calls in memory
 my %www_data;
@@ -71,7 +72,7 @@ sub usage {
 
     -s -signifier "string"
         Provide a signifier to use with name extrapolation, ie
-        "corp", to pull corp.mytalkdesk.com
+        "corp", to pull IPs for corp.mytalkdesk.com and friends.
 
     -a -aws-range "string"
         Provide the AWS ranges to match against. Default is: $default_range_str
@@ -100,10 +101,9 @@ sub usage {
 
     Get the list with a non-default set of AWS ranges:
       $prog -s 'example' -a 'eu-north' -a 'GLOBAL'
-
     END_USAGE
 
-    print "$usage";
+    say $usage;
     exit(0);
 }
 
@@ -313,7 +313,7 @@ sub ip4_ip6_from_spf {
 
 sub google_compute_cloud_ranges {
     my @ret;
-    push(@ret, &ip4_ip6_from_spf("_cloud-netblocks.googleusercontent.com"));
+    push(@ret, &ip4_ip6_from_spf($google_cloud_record));
     # this came up in callbar connections, but not in the googleusercontent.com lookup
     # TODO determine how to pull this dynamically
     push(@ret, "172.217.164.0/23") if grep {$_ eq 4} @protocols;;
