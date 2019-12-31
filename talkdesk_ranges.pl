@@ -1,7 +1,8 @@
 #!/usr/bin/env perl
 # by William Hofferbert
 #  
-# Iterate over Talkdesk names to return a complete list of CIDR ranges for routing.
+# Iterate over Talkdesk names and associated services to return a complete 
+# list of CIDR ranges for routing.
 #
 # This script pulls data from the web (requires internet connection) regarding
 # current talkdesk IP ranges
@@ -216,7 +217,7 @@ sub talkdesk_names {
     }
     # handle variable names
     for my $name (@names) {
-        # this explicitly skips *pusher.com
+        # TODO this explicitly skips *pusher.com
         next unless $name =~ /^\*\./;
         push(@return, &dig_names($signifier . "." . $name));
     }
@@ -262,35 +263,6 @@ sub cloudflare_ranges {
     return @ranges;
 }
 
-
-sub unique_ranges {
-    my %h;
-    for my $range (@_) {
-        if ($range =~ /^(.*?)\/(\d+)$/) {
-            push(@{$h{$2}}, $1);
-        }
-    }
-
-    my (@ascending, @descending, @ret);
-    for my $range (sort {$a < $b} keys %h) {
-        map {push(@ascending, "$_/$range")} @{$h{$range}};
-    }
-    @descending = reverse @ascending;
-
-    for my $range (@ascending) {
-        my $matched = 0;
-        for my $check (@descending) {
-            # don't be true if we are checking the same range
-            next if $check eq $range;
-            next if $matched == 1;
-            $matched = 1 if &ip_in_range($range, $check);
-        }
-        push(@ret, $range) if $matched == 0;
-    }
-
-    return @ret;
-}
-
 sub ip4_ip6_from_spf {
     my ($include) = @_;
     my @ret;
@@ -317,6 +289,34 @@ sub google_compute_cloud_ranges {
     # this came up in callbar connections, but not in the googleusercontent.com lookup
     # TODO determine how to pull this dynamically
     push(@ret, "172.217.164.0/23") if grep {$_ eq 4} @protocols;;
+    return @ret;
+}
+
+sub unique_ranges {
+    my %h;
+    for my $range (@_) {
+        if ($range =~ /^(.*?)\/(\d+)$/) {
+            push(@{$h{$2}}, $1);
+        }
+    }
+
+    my (@ascending, @descending, @ret);
+    for my $range (sort {$a < $b} keys %h) {
+        map {push(@ascending, "$_/$range")} @{$h{$range}};
+    }
+    @descending = reverse @ascending;
+
+    for my $range (@ascending) {
+        my $matched = 0;
+        for my $check (@descending) {
+            # don't be true if we are checking the same range
+            next if $check eq $range;
+            next if $matched == 1;
+            $matched = 1 if &ip_in_range($range, $check);
+        }
+        push(@ret, $range) if $matched == 0;
+    }
+
     return @ret;
 }
 
