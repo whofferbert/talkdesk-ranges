@@ -91,9 +91,12 @@ The help text is as follows:
       talkdesk_ranges.pl -s 'example' -a 'eu-north' -a 'GLOBAL'
 ```
 
-# Bugs
+# Bugs / Errata
 
-The domain \*pusher.com (not \*.pusher.com) is listed as a wildcard domain in the Talkdesk domains, but currently not handled in the code.
+If you find bugs in the code, feel free open a bug/issue; or fix the problem and open a pull request.
 
-If you find other bugs in the code, feel free open a bug/issue or fix the problem and open a PR.
+The domain \*pusher.com (*not* \*.pusher.com) is listed as a wildcard domain in the Talkdesk domains, but currently not handled in the code.
 
+By default, this script lists ranges for all of AWS us-east, us-west, and GLOBAL, along with Google Cloud and Cloudflare ranges. If you route all those ranges one way for Callbar, and have other applications which are required to be routed differently in the same ranges, then you will need *another* set of routes to explicitly push that other traffic through the right gateway/adapter.
+
+If there's no connectivity to the websites, there will be no valid output from the script. There is currently no "backup logic" to provide a dummy list, if the sites listed are unavailable.
