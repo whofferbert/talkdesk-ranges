@@ -6,7 +6,7 @@
 # This script pulls data from the web (requires internet connection) regarding
 # current talkdesk IP ranges
 #
-# TODO backup ranges/names if pages unavailable?
+# TODO logic for backup ranges/names if pages unavailable/timeout?
 
 use 5.010;				# say
 use strict;				# good form
@@ -363,11 +363,13 @@ sub get_ranges {
         push(@ipv6_cidr, $ipv6 . "/64");
     }
 
-    # exclude ranges that exist in other ranges
-    @ipv4_cidr = &unique_ranges(@ipv4_cidr);
-    @ipv6_cidr = &unique_ranges(@ipv6_cidr);
+    my @ret;
 
-    return (@ipv4_cidr, @ipv6_cidr);
+    # exclude ranges that exist in other ranges
+    push(@ret, &unique_ranges(@ipv4_cidr));
+    push(@ret, &unique_ranges(@ipv6_cidr));
+
+    return (@ret);
 }
 
 sub main {
