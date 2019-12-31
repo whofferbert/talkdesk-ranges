@@ -54,7 +54,7 @@ my %www_data;
 my $www_fetch_timeout_secs = 5;
 
 # ipv4 and/or 6
-my @protocols;
+my ($ipv4, $ipv6);
 
 # how to ask for things in dns
 my $dns_protocol = "UDP";
@@ -122,8 +122,8 @@ sub handle_args {
         'a|aws-range=s' => sub {push(@aws_range_names, $_[1])},
         'n|nameserver=s' => \$dns_nameserver,
         't|tcp' => sub {$dns_protocol = "TCP"},
-        '4' => sub {push(@protocols, 4)},
-        '6' => sub {push(@protocols, 6)},
+        '4' => sub { $ipv4 = 1 },
+        '6' => sub { $ipv6 = 1 },
         'h|help' => \&usage,
     );
 }
@@ -139,7 +139,9 @@ sub sanity {
     &err("$prog requires a signifier! See $prog -help for more info.") unless defined $signifier;
     # use defaults unless things were provided
     @aws_range_names = @default_aws_range unless @aws_range_names;
-    @protocols = (4) unless @protocols;
+    if (! defined $ipv4 && ! defined $ipv6) {
+        $ipv4 = 1;
+    }
 }
 
 sub dig_it {
@@ -182,13 +184,14 @@ sub ip_in_range {
 }
 
 sub dig_names {
-    # ipv4 vs ipv6
+    # argument is a list of names
+    # return is a list of IPs
     my @ips;
     for my $lookup_name (@_) {
-        if (grep {$_ eq 4} @protocols) {
+        if ($ipv4) {
             push(@ips, &dig_it($lookup_name, 'a'));
         }
-        if (grep {$_ eq 6} @protocols) {
+        if ($ipv6) {
             push(@ips, &dig_it($lookup_name, 'aaaa'));
         }
     }
@@ -249,14 +252,14 @@ sub aws_ranges {
     my @ranges;
     my $aws_obj  = decode_json &pull_www_data($aws_ip_url);
     my $aws_create_date = $aws_obj->{createDate};
-    if (grep {$_ eq 4} @protocols) {
+    if ($ipv4) {
         for my $range (@{$aws_obj->{prefixes}}) {
             if (grep {$range->{region} =~ /$_/i} @aws_range_names ) {
                 push(@ranges, $range->{ip_prefix});
             }
         }
     }
-    if (grep {$_ eq 6} @protocols) {
+    if ($ipv6) {
         for my $range (@{$aws_obj->{ipv6_prefixes}}) {
             if (grep {$range->{region} =~ /$_/i} @aws_range_names ) {
                 push(@ranges, $range->{ipv6_prefix});
@@ -279,12 +282,12 @@ sub ip4_ip6_from_spf {
     while ($data =~ /(?<=include:)(\S+)[\s$ ]/gx) {
         push(@ret, &ip4_ip6_from_spf($1));
     }
-    if (grep {$_ eq 4} @protocols) {
+    if ($ipv4) {
         while ($data =~ /(?<=ip4:)(\S+)[\s$ ]/gx) {
             push(@ret, $1);
         }
     }
-    if (grep {$_ eq 6} @protocols) {
+    if ($ipv6) {
         while ($data =~ /(?<=ip6:)(\S+)[\s$ ]/gx) {
             push(@ret, $1);
         }
@@ -297,7 +300,7 @@ sub google_compute_cloud_ranges {
     push(@ret, &ip4_ip6_from_spf($google_cloud_record));
     # this came up in callbar connections, but not in the googleusercontent.com lookup
     # TODO determine how to pull this dynamically
-    push(@ret, "172.217.164.0/23") if grep {$_ eq 4} @protocols;;
+    push(@ret, "172.217.164.0/23") if $ipv4;
     return @ret;
 }
 
@@ -329,13 +332,36 @@ sub unique_ranges {
     return @ret;
 }
 
+sub sort_ipv4 {
+    my @sorted;
+    my %h;
+    my @octets = @_;
+    for my $range (@octets) {
+        if ($range =~ /(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})\/(\d+)/) {
+            $h{$1}{$2}{$3}{$4}{$5}++;
+        }
+    }
+    for my $one (sort {$a<=>$b} keys %h) {
+        for my $two (sort {$a<=>$b} keys %{$h{$one}}) {
+            for my $three (sort {$a<=>$b} keys %{$h{$one}{$two}}) {
+                for my $four (sort {$a<=>$b} keys %{$h{$one}{$two}{$three}}) {
+                    for my $five (sort {$a<=>$b} keys %{$h{$one}{$two}{$three}{$four}}) {
+                        push(@sorted, "$one.$two.$three.$four/$five");
+                    }
+                }
+            }
+        }
+    }
+    return @sorted;
+}
+
 sub get_ranges {
     my @ranges;
     
     push(@ranges, &google_compute_cloud_ranges);
-    push(@ranges, &cloudflare_ranges) if grep {$_ eq 4} @protocols;
+    push(@ranges, &cloudflare_ranges) if $ipv4;
     push(@ranges, &aws_ranges);
-    push(@ranges, &talkdesk_ranges) if grep {$_ eq 4} @protocols;
+    push(@ranges, &talkdesk_ranges) if $ipv4;
     push(@ranges, &talkdesk_names);
 
     # ranges
@@ -375,10 +401,11 @@ sub get_ranges {
     my @ret;
 
     # exclude ranges that exist in other ranges
-    push(@ret, &unique_ranges(@ipv4_cidr));
+    push(@ret, &sort_ipv4(&unique_ranges(@ipv4_cidr)));
     push(@ret, &unique_ranges(@ipv6_cidr));
 
-    return (@ret);
+    # return output sorted by octets
+    return(@ret);
 }
 
 sub main {
