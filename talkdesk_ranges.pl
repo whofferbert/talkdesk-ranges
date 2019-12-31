@@ -1,6 +1,13 @@
 #!/usr/bin/env perl
-# by William Hofferbert
-#  
+# Copyright (c) 2019 William Hofferbert
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+#
 # Iterate over Talkdesk names and associated services to return a complete 
 # list of CIDR ranges for routing.
 #
@@ -8,6 +15,7 @@
 # current talkdesk IP ranges
 #
 # TODO logic for backup ranges/names if pages unavailable/timeout?
+#
 
 use 5.010;				# say
 use strict;				# good form
@@ -162,6 +170,7 @@ sub dig_it {
 }
 
 sub ip_in_range {
+    # works for ranges in ranges too
     my ($ip, $range) = @_;
     my $checkObj = NetAddr::IP->new( $ip );
     my $net = NetAddr::IP->new( $range );
