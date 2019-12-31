@@ -44,6 +44,51 @@ use NetAddr::IP::Util
 use Net::DNS::Dig;                      # get dns info based on names
 ```
 
+# Usage
+
+The help text is as follows:
+
+```
+  This program lists out ranges that could be associated with Talkdesk for Callbar software.
+  These ranges include explicit Talkdesk resources, AWS, Cloudflare, and Google Compute Cloud ranges.
+
+  Basic Usage: talkdesk_ranges.pl -s 'signifier' -a 'aws-range'
+
+  Options:
+
+    -s -signifier "string"
+        Provide a signifier to use with name extrapolation, ie
+        "corp", to pull IPs for corp.mytalkdesk.com and friends.
+
+    -a -aws-range "string"
+        Provide the AWS ranges to match against. Default is: us-east, us-west, GLOBAL
+        Can be provided multiple times to return all the appropriate ranges.
+        For example: us-east, eu-north, GLOBAL, etc.
+
+    -n -nameserver "IP"
+        Query a specific DNS nameserver instead of the default one.
+
+    -t -tcp
+        Do TCP based DNS lookups insted of UDP
+
+    -4 
+        Print IPv4 ranges (default)
+
+    -6
+        Print IPv6 ranges
+
+    -h -help
+        Summon a sentient, angry tuba.
+
+  Examples:
+
+    Generate a list of CIDR ranges for the talkdesk domain 'example'
+      talkdesk_ranges.pl -s 'example'
+
+    Get the list with a non-default set of AWS ranges:
+      talkdesk_ranges.pl -s 'example' -a 'eu-north' -a 'GLOBAL'
+```
+
 # Bugs
 
 The domain \*pusher.com (not \*.pusher.com) is listed as a wildcard domain in the Talkdesk domains, but currently not handled in the code.
