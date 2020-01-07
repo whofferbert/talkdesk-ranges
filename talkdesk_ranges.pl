@@ -207,6 +207,8 @@ sub pull_www_data {
             agent => $user_agent, 
             cookie_jar =>{}, 
             timeout => $www_fetch_timeout_secs);
+        # enforce hostname verification
+        $ua->ssl_opts( verify_hostname => 1);
         my $data = $ua->get($url)->content;
         $www_data{$url} = $data;
         return $data;
@@ -250,7 +252,8 @@ sub talkdesk_ranges {
 sub aws_ranges {
     # filter by aws range name parts (regex)
     my @ranges;
-    my $aws_obj  = decode_json &pull_www_data($aws_ip_url);
+    my $data = &pull_www_data($aws_ip_url);
+    my $aws_obj  = decode_json $data;
     my $aws_create_date = $aws_obj->{createDate};
     if ($ipv4) {
         for my $range (@{$aws_obj->{prefixes}}) {
@@ -299,8 +302,8 @@ sub google_compute_cloud_ranges {
     my @ret;
     push(@ret, &ip4_ip6_from_spf($google_cloud_record));
     # this came up in callbar connections, but not in the googleusercontent.com lookup
-    # TODO determine how to pull this dynamically
-    push(@ret, "172.217.164.0/23") if $ipv4;
+    # this caused some other issues with routing, leaving commented for now
+    #push(@ret, "172.217.164.0/23") if $ipv4;
     return @ret;
 }
 
