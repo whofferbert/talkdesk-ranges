@@ -12,9 +12,8 @@
 # list of CIDR ranges for routing.
 #
 # This script pulls data from the web (requires internet connection) regarding
-# current talkdesk IP ranges
-#
-# TODO logic for backup ranges/names if pages unavailable/timeout?
+# current talkdesk IP ranges. Caches data from successful runs, to use in case
+# pages do not respond in a timely manner.
 #
 
 use 5.010;				# say
@@ -48,6 +47,18 @@ my $talkdesk_names_url = "https://support.talkdesk.com/hc/en-us/articles/2043708
 my $aws_ip_url = "https://ip-ranges.amazonaws.com/ip-ranges.json";
 my $cloudflare_ip_url = "https://www.cloudflare.com/ips-v4";
 my $google_cloud_record = "_cloud-netblocks.googleusercontent.com";
+
+# WWW caching
+my %www_file_cache_names = (
+  $talkdesk_range_url => "talkdesk_ranges",
+  $talkdesk_names_url => "talkdesk_names",
+  $aws_ip_url => "aws_ips",
+  $cloudflare_ip_url => "cloudflare_ips",
+  $google_cloud_record => "google_ips",
+);
+
+my $caller_uid = $>;
+my $www_cache_dir = "/var/tmp/talkdesk-ranges.$caller_uid/";
 
 # store www page calls in memory
 my %www_data;
@@ -128,6 +139,10 @@ sub handle_args {
     );
 }
 
+sub warn {
+    my $msg=shift;
+    say STDERR $msg;
+}
 
 sub err {
     my $msg=shift;
@@ -142,6 +157,7 @@ sub sanity {
     if (! defined $ipv4 && ! defined $ipv6) {
         $ipv4 = 1;
     }
+    mkdir $www_cache_dir if ! -d $www_cache_dir;
 }
 
 sub dig_it {
@@ -198,6 +214,28 @@ sub dig_names {
     return @ips;
 }
 
+sub www_disk_cache_write {
+    my ($url, $data) = @_;
+    my $fileName = $www_file_cache_names{$url};
+    open my $FH, ">", $www_cache_dir . $fileName;
+    print $FH $data;
+    close $FH;
+}
+
+sub www_disk_cache_read {
+    my ($url) = @_;
+    my $data;
+    my $file = $www_cache_dir . $www_file_cache_names{$url};
+    return unless -f $file;
+    open my $FH, "<", $file;
+    {
+        local $/ = undef;
+        $data = <$FH>;
+    }
+    close $FH;
+    return $data;
+}
+
 sub pull_www_data {
     my ($url) = @_;
     if (exists $www_data{$url}) {
@@ -209,14 +247,26 @@ sub pull_www_data {
             timeout => $www_fetch_timeout_secs);
         # enforce hostname verification
         $ua->ssl_opts( verify_hostname => 1);
-        my $data = $ua->get($url)->content;
-        $www_data{$url} = $data;
-        return $data;
+        my $req = $ua->get($url);
+        if ($req->is_success) {
+            my $data = $req->content;
+            $www_data{$url} = $data;
+            &www_disk_cache_write($url, $data);
+            return $data;
+        } else {
+            my $data = &www_disk_cache_read($url);
+            return $data if defined $data;
+        }
     }
+    # if none above works, it's undef
 }
 
 sub talkdesk_names {
     my $data = &pull_www_data($talkdesk_names_url);
+    if (! defined $data) {
+        &warn("Unable to pull Talkdesk names");
+        return;
+    }
     my @names;
     # TODO this relies on their html formatting and therefore sucks
     # could probably be better...
@@ -241,6 +291,10 @@ sub talkdesk_names {
 sub talkdesk_ranges {
     # pull data from live site...
     my $data = &pull_www_data($talkdesk_range_url);
+    if (! defined $data) {
+        &warn("Unable to pull Talkdesk ranges");
+        return;
+    }
     my @ranges;
     # TODO sanity check we get correct ranges, ie octets between 0-255 and ranges between 0 and 32
     while ($data =~ /((?:\d{1,3}\.){3}\d{1,3}\/\d+)/g) {
@@ -253,6 +307,10 @@ sub aws_ranges {
     # filter by aws range name parts (regex)
     my @ranges;
     my $data = &pull_www_data($aws_ip_url);
+    if (! defined $data) {
+        &warn("Unable to pull AWS ranges");
+        return;
+    }
     my $aws_obj  = decode_json $data;
     my $aws_create_date = $aws_obj->{createDate};
     if ($ipv4) {
@@ -274,6 +332,10 @@ sub aws_ranges {
 
 sub cloudflare_ranges {
     my $data = &pull_www_data($cloudflare_ip_url);
+    if (! defined $data) {
+        &warn("Unable to pull Cloudflare ranges");
+        return;
+    }
     my @ranges = split(/\n/, $data);
     return @ranges;
 }
@@ -300,10 +362,9 @@ sub ip4_ip6_from_spf {
 
 sub google_compute_cloud_ranges {
     my @ret;
+    # TODO any way to cache this? not without a lot of adjustment
+    # i suppose we should just rely on the spf info being there
     push(@ret, &ip4_ip6_from_spf($google_cloud_record));
-    # this came up in callbar connections, but not in the googleusercontent.com lookup
-    # this caused some other issues with routing, leaving commented for now
-    #push(@ret, "172.217.164.0/23") if $ipv4;
     return @ret;
 }
 
@@ -367,7 +428,7 @@ sub get_ranges {
     push(@ranges, &talkdesk_ranges) if $ipv4;
     push(@ranges, &talkdesk_names);
 
-    # ranges
+    # only report on unique ranges
     my %uniq;
     map {$uniq{$_}++} @ranges;
     my @sort_ranges = sort keys %uniq;
