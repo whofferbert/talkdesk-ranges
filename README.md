@@ -10,6 +10,8 @@ One of these lists is fairly easy to parse, but the names are a little trickier.
 
 This tool aims to make it easier to deal with networking requirements where the soft phone traffic must be routed differently than the default traffic.
 
+Successful WWW calls are written to disk, for caching in case of trouble reaching pages in the future.
+
 # Automation
 
 Inside talkdesk_ranges.pl some urls and DNS records are defined:
@@ -72,6 +74,9 @@ The help text is as follows:
 
     -t -tcp
         Do TCP based DNS lookups insted of UDP
+
+    -c -www-cache-dir "/path/to/dir"
+        Use a non-standard dir for caching calls.
 
     -4 
         Print IPv4 ranges (default)
