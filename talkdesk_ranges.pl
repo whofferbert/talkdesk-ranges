@@ -105,6 +105,10 @@ sub usage {
     -t -tcp
         Do TCP based DNS lookups insted of UDP
 
+    -c -www-cache-dir "/path/to/dir"
+        Use a non-standard dir for caching calls.
+        Default is $www_cache_dir
+
     -4 
         Print IPv4 ranges (default)
 
@@ -133,6 +137,7 @@ sub handle_args {
         'a|aws-range=s' => sub {push(@aws_range_names, $_[1])},
         'n|nameserver=s' => \$dns_nameserver,
         't|tcp' => sub {$dns_protocol = "TCP"},
+        'c|www-cache-dir=s' => \$www_cache_dir,
         '4' => sub { $ipv4 = 1 },
         '6' => sub { $ipv6 = 1 },
         'h|help' => \&usage,
